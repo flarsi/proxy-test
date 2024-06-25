@@ -1,6 +1,38 @@
-function splitTextWithTrademark(text) {
-  const words = text.split(/\b(?=\w*™\b)/);
-  return words.map((word) => word.trim());
+function splitTextIntoWords(text) {
+  // Use a regular expression to match words, including those with punctuation
+  return text.match(/\b\w+\b|[.,!?;:()]/g) || [];
+}
+
+function processTextNode(textNode) {
+  let text = textNode.nodeValue;
+
+  // Check if the text is a JSON string
+  let isJson = false;
+  try {
+    const json = JSON.parse(text);
+    text = JSON.stringify(json, null, 2); // Format the JSON string
+    isJson = true;
+  } catch (e) {
+    // Not a JSON string, proceed as normal
+  }
+
+  const words = splitTextIntoWords(text);
+  const updatedWords = words.map(function (word) {
+    if (/^\p{L}{6}$/u.test(word) && !/™$/.test(word)) {
+      return word + '™';
+    }
+    return word;
+  });
+
+  let updatedText;
+  if (isJson) {
+    updatedText = updatedWords.join('');
+  } else {
+    updatedText = updatedWords.join(' ');
+  }
+
+  // Update the text node content
+  textNode.nodeValue = updatedText;
 }
 
 function updateSixLetterWords() {
@@ -11,28 +43,13 @@ function updateSixLetterWords() {
     null,
     false,
   );
-  let node;
 
+  let node;
   while ((node = walk.nextNode())) {
     textNodes.push(node);
   }
 
-  textNodes.forEach(function (textNode) {
-    const text = textNode.nodeValue;
-    const words = splitTextWithTrademark(text);
-    const updatedWords = words.map(function (word) {
-      if (/^\p{L}{6}$/u.test(word)) {
-        return word + '™';
-      }
-      return word;
-    });
-
-    const updatedText = updatedWords.join('');
-
-    const span = document.createElement('span');
-    span.innerHTML = updatedText;
-    textNode.parentNode.replaceChild(span, textNode);
-  });
+  textNodes.forEach(processTextNode);
 }
 
 (function () {
@@ -57,7 +74,6 @@ function updateSixLetterWords() {
   };
 
   window.addEventListener('popstate', onLocationChange);
-
   window.addEventListener('hashchange', onLocationChange);
 })();
 
